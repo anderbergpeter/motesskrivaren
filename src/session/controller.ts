@@ -2,6 +2,7 @@ import type { PcmChunk } from '../audio/chunker';
 import { Recorder } from '../audio/recorder';
 import { encodeWav, floatToInt16 } from '../audio/wav';
 import type { CloudStorage } from '../cloud/types';
+import { endLocalSession, localConfig, preloadLocal } from '../local/localProvider';
 import { getProvider, type BatchProvider, type ProviderSettings, type RawSegment, type StreamProvider } from '../providers';
 import { db, requestPersistentStorage } from '../storage/db';
 import type { Settings } from '../settings';
@@ -89,10 +90,12 @@ export class MeetingController {
     if (this.isRecording) return;
     const provider = getProvider(this.settings.providerId);
     const ps = this.providerSettings();
-    if (provider.id !== 'mock' && provider.id !== 'selfhosted' && !ps.apiKey) {
+    const keyless = ['mock', 'selfhosted', 'local', 'webspeech'];
+    if (!keyless.includes(provider.id) && !ps.apiKey) {
       throw new Error(`Ange API-nyckel för ${provider.label} i inställningarna`);
     }
     await requestPersistentStorage();
+    if (provider.id === 'local') preloadLocal(localConfig(ps));
 
     const session: Session = {
       id: crypto.randomUUID(),
@@ -147,6 +150,7 @@ export class MeetingController {
       this.stream = null;
     }
     await this.queue; // wait for the last chunk transcriptions
+    if (this.session.providerId === 'local') endLocalSession(this.session.id);
     this.session.endedAt = new Date().toISOString();
     await this.persist();
     await this.syncCloud(true);

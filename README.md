@@ -1,6 +1,8 @@
 # Mötesskrivaren
 
-Lägg telefonen på bordet, tryck på **Starta transkribering**, och få ett svenskt transkript med talare A/B/C som sparas löpande i din egen Google Drive eller OneDrive. Statisk webbapp (GitHub Pages), inga egna servrar behövs: du använder din egen API-nyckel hos en transkriberingstjänst.
+Lägg telefonen på bordet, tryck på **Starta transkribering**, och få ett svenskt transkript med talare A/B/C som sparas löpande i din egen Google Drive eller OneDrive. Statisk webbapp på GitHub Pages: **https://anderbergpeter.github.io/motesskrivaren/**
+
+**Helt gratis som standard.** Transkriberingen körs i din egen webbläsare med KB-Whisper (Kungliga bibliotekets svenska Whisper) och en lokal röstmodell för talarindelning. Inga konton, inga API-nycklar, inget ljud lämnar enheten. Första gången laddas modellerna ner (ca 140 MB + 96 MB) och sparas i webbläsaren. Välj ett annat språk så byter appen till OpenAI:s flerspråkiga Whisper (99 språk). Betaltjänster med egen nyckel finns kvar som alternativ för den som vill ha högre kvalitet eller snabbare text.
 
 Bakgrund, jämförelser och juridik finns i [docs/RESEARCH.md](docs/RESEARCH.md).
 
@@ -26,6 +28,8 @@ Mikrofon ─► AudioWorklet (kontinuerlig PCM) ─► 16 kHz WAV-delar var 60:e
 
 | Leverantör | Typ | Svenska | Talare | Ca kostnad / mötestimme | EU |
 |---|---|---|---|---|---|
+| **I webbläsaren (standard)** | lokal batch | KB-Whisper tiny/base/small (WER 13/9/7 %) | hela mötet via lokal röstmatchning (WavLM) | **0 kr** | all data på enheten |
+| Webbläsarens taligenkänning | ström | ja (Google/Apple) | nej | 0 kr | leverantörens moln |
 | Speechmatics realtid (rekommenderad) | ström | ja, publicerad svensk WER | hela mötet | 5–8 USD (0,45–0,80) | ja, eu.rt |
 | Soniox realtid | ström | ja | hela mötet | 0,12 USD | på begäran |
 | Deepgram Nova-2/3 live | ström | ja | hela mötet | 0,6–0,7 USD | api.eu (kräver kodändring) |
@@ -82,7 +86,14 @@ Se [server/README.md](server/README.md).
 
 Detaljer och källor: [docs/RESEARCH.md](docs/RESEARCH.md).
 
+## Lokal motor: vad man kan förvänta sig
+
+- Testat på en Windows-dator med WebGPU: en 30-sekundersdel tar 7–10 sekunder efter uppvärmning (de två första delarna 20–30 s medan GPU-shaders kompileras). På en telefon utan WebGPU går det långsammare; texten släpar efter men hinner ikapp i pauser, och inget ljud tappas eftersom allt sparas lokalt först.
+- Talarindelningen räknar en röstsignatur per 2-sekundersfönster och matchar mot mötets kända talare (cosinuslikhet ≥ 0,75). I testet med två uppläsare som växlade var 15:e sekund blev varje byte rätt över fyra delar. Signaturerna lever bara i minnet under mötet.
+- Tystnad filtreras bort så att Whisper inte hittar på korta fraser.
+- Modellstorlek väljs i inställningarna: tiny för gamla telefoner, base som standard, small på dator med GPU.
+
 ## Status
 
-- Verifierat: inspelning → chunkning → lokal lagring → transkriptvy → export, med simulerad mikrofon och demoleverantören.
+- Verifierat: inspelning → chunkning → lokal lagring → lokal transkribering med KB-Whisper → talarindelning → transkriptvy → export, med svenskt testljud från två uppläsare.
 - Skrivet enligt officiell dokumentation men **inte kört med riktiga nycklar ännu**: Speechmatics, Soniox, Deepgram, ElevenLabs, OpenAI, Google Drive, OneDrive, egen server. Räkna med småjusteringar vid första körning.

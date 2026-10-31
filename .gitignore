@@ -5,3 +5,4 @@ dist
 server/.venv
 server/__pycache__
 server/models
+public/test

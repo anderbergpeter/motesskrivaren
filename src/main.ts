@@ -2,6 +2,7 @@ import './style.css';
 import { GoogleDriveStorage } from './cloud/googleDrive';
 import { OneDriveStorage } from './cloud/oneDrive';
 import type { CloudStorage } from './cloud/types';
+import { localConfig, onLocalStatus, preloadLocal, type LocalStatus } from './local/localProvider';
 import { providers } from './providers';
 import { MeetingController } from './session/controller';
 import { loadSettings, saveSettings, type Settings } from './settings';
@@ -16,6 +17,7 @@ let cloudStatus = '';
 let cloudOk = true;
 let status = { text: '', kind: 'info' as 'info' | 'warn' | 'error' };
 let level = 0;
+let localStatus: LocalStatus = { text: '', ready: false };
 let timer: ReturnType<typeof setInterval> | null = null;
 
 function makeCloud(): CloudStorage | null {
@@ -95,6 +97,16 @@ function renderRecorder(session: Session | null, recording: boolean): HTMLElemen
       : h('button', { class: 'big primary', onClick: () => onStart(titleInput.value) }, 'Starta transkribering'),
     h('p', { class: `status ${status.kind}`, style: 'margin-top:10px' }, status.text),
     cloudStatus ? h('p', { class: `status ${cloudOk ? 'ok' : 'warn'}` }, cloudStatus) : null,
+    settings.providerId === 'local' && localStatus.text
+      ? h(
+          'div',
+          {},
+          h('p', { class: `status ${localStatus.ready ? 'ok' : ''}` }, localStatus.text),
+          localStatus.fraction !== undefined && !localStatus.ready
+            ? h('div', { class: 'meter', style: 'margin-top:4px' }, h('div', { style: `width:${Math.round(localStatus.fraction * 100)}%; background: var(--accent)` }))
+            : null,
+        )
+      : null,
     session && session.chunks.length
       ? h(
           'div',
@@ -280,6 +292,14 @@ function renderSettings(): HTMLElement {
         ...providers.map((p) => h('option', { value: p.id, selected: p.id === settings.providerId || undefined }, p.label)),
       ),
       h('p', { class: 'hint' }, providerHint(provider.id)),
+      provider.id === 'local'
+        ? h(
+            'div',
+            { class: 'row', style: 'margin-top:8px' },
+            h('button', { onClick: () => preloadLocal(localConfig({ language: settings.language, model: settings.model })), disabled: localStatus.ready }, localStatus.ready ? 'Modeller laddade' : 'Ladda ner modeller nu'),
+            h('span', { class: 'hint' }, 'Laddas ner en gång och sparas i webbläsaren. Gör det på wifi innan mötet.'),
+          )
+        : null,
     ),
     provider.id !== 'mock'
       ? h('div', { class: 'field' }, h('label', {}, provider.id === 'selfhosted' ? 'Token (valfritt)' : 'API-nyckel (sparas bara i den här webbläsaren)'), keyInput)
@@ -318,12 +338,27 @@ function renderSettings(): HTMLElement {
         h('label', {}, 'Minutdelens längd (sekunder)'),
         h('input', { type: 'number', min: 20, max: 600, step: 10, value: settings.chunkSeconds, onChange: (e: Event) => update({ chunkSeconds: Math.max(20, Math.min(600, Number((e.target as HTMLInputElement).value) || 60)) }) }),
       ),
-      h(
-        'div',
-        { class: 'field grow' },
-        h('label', {}, 'Modell (valfritt)'),
-        h('input', { type: 'text', placeholder: 'standard', value: settings.model, onChange: (e: Event) => update({ model: (e.target as HTMLInputElement).value.trim() }) }),
-      ),
+      provider.id === 'local'
+        ? h(
+            'div',
+            { class: 'field grow' },
+            h('label', {}, 'Modellstorlek'),
+            h(
+              'select',
+              { onChange: (e: Event) => update({ model: (e.target as HTMLSelectElement).value }) },
+              ...[
+                ['tiny', 'Tiny – snabbast, ca 90 MB, sämre (WER ~13 %)'],
+                ['base', 'Base – rekommenderad, ca 140 MB (WER ~9 %)'],
+                ['small', 'Small – bäst, ca 310 MB, kräver GPU/dator (WER ~7 %)'],
+              ].map(([v, l]) => h('option', { value: v, selected: v === (settings.model || 'base') || undefined }, l)),
+            ),
+          )
+        : h(
+            'div',
+            { class: 'field grow' },
+            h('label', {}, 'Modell (valfritt)'),
+            h('input', { type: 'text', placeholder: 'standard', value: settings.model, onChange: (e: Event) => update({ model: (e.target as HTMLInputElement).value.trim() }) }),
+          ),
     ),
     h('h3', { style: 'margin:14px 0 8px; font-size:1rem' }, 'Lagring i molnet'),
     h(
@@ -380,6 +415,10 @@ function renderSettings(): HTMLElement {
 
 function providerHint(id: string): string {
   switch (id) {
+    case 'local':
+      return 'Helt gratis och privat: KB-Whisper (svenska) eller OpenAI Whisper (andra språk) körs i din webbläsare, med lokal röstmatchning för talare A/B/C. Kräver en hyfsat ny telefon eller dator; på svag hårdvara släpar texten efter men kommer ikapp.';
+    case 'webspeech':
+      return 'Gratis via webbläsarens egen taligenkänning (Google i Chrome, Apple i Safari). Snabb och bra text, men ingen talarindelning.';
     case 'speechmatics':
       return 'Rekommenderas för live. Svenska, EU-servrar, samma talare hela mötet. Ca 9–16 kr per mötestimme. Gratis startkredit.';
     case 'soniox':
@@ -473,6 +512,10 @@ controller.on((e) => {
   render();
 });
 
+onLocalStatus((s) => {
+  localStatus = s;
+  render();
+});
 if (cloud instanceof OneDriveStorage) void cloud.restore().then(render);
 render();
 void refreshSessions();

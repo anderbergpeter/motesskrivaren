@@ -20,7 +20,7 @@ export interface Settings {
 const KEY = 'ms.settings';
 
 export const defaultSettings: Settings = {
-  providerId: 'mock',
+  providerId: 'local',
   apiKeys: {},
   selfHostedUrl: '',
   model: '',

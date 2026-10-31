@@ -6,6 +6,8 @@ Underlag för Mötesskrivaren. Fyra spår: open source, betaltjänster, juridik,
 
 **Fråga: är Whisper bäst?** För svenska: ja, men inte OpenAI:s Whisper utan **KB-Whisper** från Kungliga bibliotekets KBLab, en svenskfinjusterad Whisper large-v3. Den halverar felfrekvensen (WER) jämfört med OpenAI:s large-v3 på svenska testset och är Apache 2.0. Men Whisper gör ingen talarindelning; det kräver ett separat diariseringssteg (pyannote) och i praktiken en GPU-server. Ingen webbläsare på en telefon klarar två timmar med stor modell plus diarisering.
 
+**Krav som tillkom efter första versionen: noll kronor och fungera direkt.** Då faller alla API-tjänster bort (nyckel krävs även för gratiskrediter) och den enda vägen är att köra modellerna i webbläsaren. Det visade sig fungera bättre än väntat: KBLab publicerar KB-Whisper i ONNX-format för transformers.js, och Xenova/wavlm-base-plus-sv ger talarsignaturer. Med WebGPU bearbetas 30 s ljud på 7–10 s; talarbyten i ett tvåpersonerstest träffades exakt över fyra minutdelar. Begränsningen är hårdvaran: på en äldre telefon utan WebGPU släpar texten efter. Detta är nu standardläget i appen; API-tjänsterna nedan finns kvar som tillval.
+
 **Rekommenderad arkitektur** (det som är byggt):
 
 1. Statisk webbapp på GitHub Pages. Ljudet fångas som obruten PCM via AudioWorklet och klipps i 60-sekundersdelar som 16 kHz WAV. Varje del sparas lokalt i IndexedDB innan något annat händer.
@@ -26,7 +28,7 @@ Underlag för Mötesskrivaren. Fyra spår: open source, betaltjänster, juridik,
 | NVIDIA Canary-1b-v2 / Parakeet-tdt-0.6b-v3 | ASR 25 EU-språk inkl. svenska | Inga svenska siffror publicerade; inget tyder på att de slår KB-Whisper. | [canary](https://huggingface.co/nvidia/canary-1b-v2) |
 | Voxtral (Mistral), Kyutai STT, SenseVoice, Moonshine | ASR | **Ingen svenska** (Voxtral 3 hävdar 24 EU-språk men svenska är inte bekräftat i docs). | [Mistral docs](https://docs.mistral.ai/capabilities/audio/speech_to_text) |
 | emotion2vec+, audeering w2v2 | Känsloigenkänning ur röst | Tränade på kinesiska/engelska. Ingen svensk utvärdering alls. Bara grov "energi/arousal" är överförbar. Dessutom förbjudet på arbetsplats (avsnitt 4). | [emotion2vec](https://github.com/ddlBoJack/emotion2vec), [arXiv 2203.07378](https://arxiv.org/pdf/2203.07378v3) |
-| I webbläsaren (transformers.js, whisper.cpp WASM, sherpa-onnx) | Allt lokalt på telefonen | Klarar bara KB tiny/base/small (WER 7–13 %), tar tiotals minuter till timmar för två timmars ljud och dränerar batteriet. Diarisering i WASM finns men är sämre och för långsam. **Inte realistiskt** för kravet. | [whisper-web](https://github.com/xenova/whisper-web), [sherpa-onnx](https://k2-fsa.github.io/sherpa/onnx/speaker-diarization/index.html) |
+| I webbläsaren (transformers.js, whisper.cpp WASM, sherpa-onnx) | Allt lokalt på telefonen | KB tiny/base/small (WER 13/9/7 %) i ONNX. Uppmätt i appen: 30 s ljud på 7–10 s med WebGPU på dator, inklusive talarsignaturer via WavLM-sv. Utan WebGPU (äldre telefoner) flera gånger långsammare. **Fungerar, med reservation för hårdvaran**, och är gratis. | [whisper-web](https://github.com/xenova/whisper-web), [sherpa-onnx](https://k2-fsa.github.io/sherpa/onnx/speaker-diarization/index.html) |
 
 Färdiga självhostade paket: **Scriberr** (WhisperX-baserad, webbgränssnitt), WhisperLive/WhisperLiveKit (streaming, men diariseringen är engelskcentrerad och maxar 4 talare), Speaches (ingen diarisering), noScribe/Vibe (desktopprogram).
 
