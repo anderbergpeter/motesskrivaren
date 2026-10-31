@@ -301,7 +301,7 @@ function renderSettings(): HTMLElement {
           )
         : null,
     ),
-    provider.id !== 'mock'
+    !['mock', 'local', 'webspeech'].includes(provider.id)
       ? h('div', { class: 'field' }, h('label', {}, provider.id === 'selfhosted' ? 'Token (valfritt)' : 'API-nyckel (sparas bara i den här webbläsaren)'), keyInput)
       : null,
     provider.id === 'selfhosted'
