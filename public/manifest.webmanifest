@@ -1,0 +1,11 @@
+{
+  "name": "Mötesskrivaren",
+  "short_name": "Mötesskrivaren",
+  "description": "Transkribera fysiska möten på svenska med talarindelning.",
+  "start_url": "./",
+  "display": "browser",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "lang": "sv",
+  "icons": [{ "src": "./favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}
